@@ -6,12 +6,19 @@
 
 </head>
 <body>
-{% include 'navbar.html' %}
+    {% include 'navbar.html' %}
 
-{% block content %}
+    {% if messages %}
+        <div class="messages">
+            {% for message in messages %}
+                <h1>{{ message }}</h1>
+            {% endfor %}
+        </div>
+    {% endif %}
 
-{% endblock %}
+    {% block content %}
 
+    {% endblock %}
 
 </body>
 </html>
