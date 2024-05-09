@@ -2,7 +2,7 @@ from django.shortcuts import render, redirect
 from .forms import RoomForm
 # Create your views here.
 from django.http import HttpResponse
-from .models import Room, Topic
+from .models import Room, Topic, Messages
 from django.db.models import Q
 
 from django.contrib.auth.models import User
@@ -20,13 +20,27 @@ def home(request):
     rooms = Room.objects.filter(Q(topic__name__icontains=q) | Q(name__icontains=q) | Q(description__icontains=q))
     topics = Topic.objects.all()
     room_count = rooms.count()
-    context = {'rooms': rooms, "topics": topics, "room_count": room_count}
+    room_messages = Messages.objects.filter(Q(room__topic__name__icontains=q))
+    context = {'rooms': rooms, "topics": topics, "room_count": room_count, "room_messages": room_messages}
     return render(request, 'base/home.html', context)
 
 
 def room(request, pk):
     room = Room.objects.get(id=int(pk))
-    context = {'room': room}
+    room_messages = room.messages_set.all().order_by('-created')
+    participants = room.participants.all()
+
+    if request.method == "POST":
+        message = Messages.objects.create(
+            user=request.user,
+            room=room,
+            body=request.POST.get('body')
+        )
+        room.participants.add(request.user)
+        return redirect('room', pk=room.id)
+
+
+    context = {'room': room, "room_messages": room_messages, "participants": participants}
     return render(request, "base/room.html", context)
 
 
@@ -117,3 +131,18 @@ def register_page(request):
         else:
             messages.error(request, "An error occurred during registration!")
     return render(request, "base/login_register.html", {"form": form})
+
+
+
+@login_required(login_url='login')
+def delete_message(request, pk):
+    message = Messages.objects.get(id=pk)
+
+    if request.user != message.user:
+        return HttpResponse("<h1>You do not have permission!</h1>")
+
+    if request.method == "POST":
+        message.delete()
+        return redirect('home')
+
+    return render(request, "base/delete.html", {'obj': message})
